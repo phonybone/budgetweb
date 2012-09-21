@@ -1,0 +1,38 @@
+8Aug12
+Continue testing removal of dups; have to figure out good test
+strategy.
+
+Insertion into test db shows many fields are still strings, not
+numbers.  Fix this.
+
+17Jul12
+Need to setup a fixture for testing
+
+13Jun12
+report should have two modes, 'lines' and 'table' (or 'totals')
+
+init: do a full report (subject to last six months, table mode), then
+enter query loop.  Replace report() with a Report call, and use the
+existing code in report() to implement table mode.
+
+
+replace expense2string, @field_order with Expense.pm
+
+fix bug regarding added codes being entered as strings 
+
+monthly totals in report
+
+separate io loop from query generator
+
+# read codes (store codes in db?)
+# 
+# read data files
+# - strip quotes
+# - weed out bad lines
+# - convert amounts
+# - convert dates
+# - convert alphanumeric codes to numbers, store to db
+# insert data 
+
+# build report hash (by_month_by_code)
+# do reports

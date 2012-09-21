@@ -1,0 +1,27 @@
+
+13Jun12
+report should have two modes, 'lines' and 'table' (or 'totals')
+
+init: do a full report (subject to last six months, table mode), then
+enter query loop.  Replace report() with a Report call, and use the
+existing code in report() to implement table mode.
+
+
+replace expense2string, @field_order with Expense.pm
+
+fix bug regarding added codes being entered as strings 
+
+monthly totals in report
+
+separate io loop from query generator
+* have two occasions to read from the terminal and do stuff:
+** assigning codes to unknown expenses
+*** hard to use Term::Shell because *all* cmds will essentially be unknown
+*** so better to keep existing system?
+** generating reports
+*** might have potential to use Term::Shell; cmds might be:
+**** c \d+
+**** s mm/dd/yy
+**** e mm/dd/yy
+**** q
+**** 
