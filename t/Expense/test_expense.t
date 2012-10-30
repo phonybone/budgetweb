@@ -14,6 +14,8 @@ use lib abs_path("$Bin/../..");
 our $class='Expense';
 use Codes;
 
+use PhonyBone::FileUtilities qw(warnf);
+
 BEGIN: {
   Options::use(qw(d q v h fuse=i));
     Options::useDefaults(fuse => -1);
@@ -25,10 +27,11 @@ BEGIN: {
 
 sub main {
     require_ok($class) or BAIL_OUT("$class has compile issues, quitting");
-    $class->collection_name('expense_test');
-    
-    test_constructor();
-    test_regex2code();
+#    $class->collection_name('expense_test');
+    warnf "using %s\n", $class->mongo_coords;
+#    test_constructor();
+    test_db_lookup();
+#    test_regex2code();
 }
 
 sub test_constructor {
@@ -77,6 +80,21 @@ sub test_constructor {
     cmp_ok($e->day, '==', 30, 'day');
     cmp_ok($e->year, '==', 2012, 'year');
 }
+
+sub test_db_lookup {
+    my $exp1=$class->find({},{limit=>1})->[0];
+    isa_ok($exp1, $class);
+    my $id=$exp1->_id->value;
+
+    my $exp2=$class->new($id);
+    isa_ok($exp2, $class);
+
+    # is_deeply was choking on an overloaded string operator, so:
+    foreach my $field (qw(date bank_desc amount code month day year ts)) {
+	cmp_ok($exp1->$field, 'eq', $exp2->$field, $field);
+    }
+}
+
 
 sub test_regex2code {
   SKIP: {

@@ -1,13 +1,14 @@
 package Expense;
 use Moose;
-extends qw(Mongoid);
 use MooseX::ClassAttribute;
 use Moose::Util::TypeConstraints;
 
 use Data::Dumper;
 use DateTime;
+use Data::Structure::Util qw(unbless);
 use PhonyBone::FileUtilities qw(warnf);
 use Codes;
+use MongoDB::OID;
 
 has date =>     (is=>'ro', required=>1, 
 		 isa=>subtype(as 'Str', where {m|\d\d?/\d\d?/\d\d+|}));
@@ -23,6 +24,7 @@ has ts =>       (is=>'ro', isa=>'Int', required=>1); # actually constructed in B
 
 class_has 'db_name' => (is=>'rw', isa=>'Str', default=>'money');
 class_has 'collection_name' => (is=>'rw', isa=>'Str', default=>'budget');
+with 'Mongoid';
 
 # Delay loading codes as long as possible
 class_has codes => (is=>'ro', isa=>'Codes', lazy=>1, builder => '_get_codes');
@@ -31,10 +33,9 @@ sub _get_codes { Codes->instance }
 class_has field_order => (is=>'ro', isa=>'ArrayRef',
 			  default=>sub { [qw(date cheque_no bank_desc amount 
 					     code month day year ts)] });
-class_has int_fields => (is=>'ro', isa=>'ArrayRef',
-			 default=>sub { [qw(code month day year ts)] });
-class_has dbl_fields => (is=>'ro', isa=>'ArrayRef',
-			 default=>sub { [qw(amount)] });
+#class_has int_fields => (is=>'ro', isa=>'ArrayRef', default=>sub { [qw(code month day year ts)] });
+#class_has dbl_fields => (is=>'ro', isa=>'ArrayRef', default=>sub { [qw(amount)] });
+			 
 
 
 use parent qw(Exporter);
@@ -51,11 +52,22 @@ around BUILDARGS => sub {
     my %args;
     if (@_ == 1) {
 	my $args=$_[0];
+
+	# convert to ref as appropriate:
 	if (! ref $args) {
-	    $args=[split(',',$args)];
+	    if ($args=~/[\da-f]{24}/) { 
+		my $exp=$class->find_one($args);
+#		warn "BUILDARGS: exp is ", Dumper($exp);
+#		warn "BUILDARGS: exp->{_id} is ", Dumper($exp->{_id});
+#		$args=unbless $exp; # did this so control flow (below) works
+		$args=$exp;
+	    } else {
+		$args=[split(',',$args)];
+	    }
 	}
 #	warn "args are ", Dumper($args);
 
+	warn "ref args is ", ref $args;
 	if (ref $args eq 'ARRAY') {
 	    remove_quotes_array($args);
 
@@ -67,13 +79,18 @@ around BUILDARGS => sub {
 	    my @fo=@{$class->field_order};
 	    @args{@fo}=@$args;
 #	    warn "args are now ", Dumper(\%args);
-	} elsif ($args eq 'HASH') {
-	    %args=%{$args};
+
+	} elsif (ref $args eq 'HASH') {
+	    %args=%$args;
+
+	} elsif (ref $args eq 'Expense') {
+	    %args=%$args;
+
 	} else {
 	    confess "huh???", Dumper($args), ' '; # trailing ' ' to force stack trace
 	}
 	
-	$args{code}=0+$args{code};
+	$args{code}=0+$args{code} if defined $args{code};
 		 
     } else {
 	local $SIG{__WARN__} = sub {confess @_};
@@ -94,6 +111,7 @@ around BUILDARGS => sub {
 	$args{ts}=DateTime->new(day=>$d, month=>$m, year=>$y)->epoch();
 
     }
+#    warn "BUILDARGS (end): args are ", Dumper(\%args);
     return $class->$orig(%args);
 };
 

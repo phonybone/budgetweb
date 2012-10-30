@@ -18,6 +18,7 @@ use Cwd 'abs_path';
 use MoneyDB;
 use Report;
 use Expense;
+use Codes;
 
 BEGIN: {
     Options::use(qw(d v no_query append|a keep_transfers 
@@ -25,7 +26,7 @@ BEGIN: {
 		  mongo_host:s
 		  n_display_cols:i budget_collection:s regex_file:s skip_add));
     Options::useDefaults(
-			 mongo_host=>'ec2-50-17-110-122.compute-1.amazonaws.com',
+			 mongo_host=>$ENV{EC2_HOST} || 'ec2-50-17-110-122.compute-1.amazonaws.com',
 			 keep_transfers=>1,
 			 report_width=>6,
 			 n_display_cols=>3,
@@ -37,6 +38,9 @@ BEGIN: {
 
     $ENV{DEBUG}=1 if $options{d};
     $options{verbose}=1 if $options{d};
+
+    $_->host($options{mongo_host}) for qw(Report Expense Codes);
+    warn "using mongo host on $options{mongo_host}\n";
 }
 
 sub main {
@@ -47,7 +51,7 @@ sub main {
     my %moneydb_opts=(codes=>$codes,
 		      regex_file=>$options{regex_file},
 	);
-    MoneyDB->initialize(%moneydb_opts);
+    MoneyDB->initialize(%moneydb_opts); # initialize is a Singleton method
     my $app=MoneyDB->instance;
 
     # load new expenses from @files:
@@ -56,6 +60,7 @@ sub main {
 
     # insert expenses into db:
     do { $_->save } for @$expenses;
+    warnf "%d expenses total\n", Expense->mongo->count();
 
     # assign codes from regex where possible
     my $n_assigned=$app->regex2code;

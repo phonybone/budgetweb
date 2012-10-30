@@ -31,7 +31,7 @@ sub loop1 {
 
     while (1) {
 	print "\n$exp\n";
-	print "Enter Code ('?' for list): ";
+	print "Enter Code ('?' for list, 's' to skip): ";
 	my $code=<STDIN>;
 	chomp $code;
 
@@ -54,13 +54,12 @@ sub loop1 {
 	}
 
 	# new code desc:
-	warn "adding new code '$code'";
 	my $new_code=eval {$codes->add($code)};
 	if ($@) {
 	    warn $@;
 	    next;
 	}
-	warn "new code: $new_code -> $code\n" if $ENV{DEBUG};
+	warn "new code: $new_code -> $code\n";
 	return $new_code;
     }
 }

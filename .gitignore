@@ -1,0 +1,10 @@
+*.csv
+*.out
+out
+*.bak
+scrap*
+*.old
+*.2
+crap*
+#*
+.#*

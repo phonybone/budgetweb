@@ -127,10 +127,17 @@ sub regex2code {
 sub initial_report {
     my ($self)=@_;
 
-    my $start=time-60*60*24*365/2; # 6 months ago
-    my $now=time;
+    my $start=time-60*60*24*365; # 12 months ago
+    my @datelist=localtime($start);
+    my $start_date=sprintf "%d/%d/%d", $datelist[4], $datelist[3], $datelist[5]+1900;
 
-    my $report=Report->new(start_ts=>$start, stop_ts=>$now);
+    my $stop=time; # 12 months ago
+    @datelist=localtime($stop);
+    my $stop_date=sprintf "%d/%d/%d", $datelist[4], $datelist[3], $datelist[5]+1900;
+
+
+    my $report=Report->new(start=>$start_date, stop=>$stop_date);
+#    my $report=Report->new(start_ts=>$start, stop_ts=>$now);
     print $report->table_report, "\n";
 }
 

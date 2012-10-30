@@ -1,6 +1,6 @@
 package Codes;
 use PhonyBone::FileUtilities qw(warnf dief);
-use Mongoid qw(get_mongo ensure_indexes);	# can't extend Mongoid; doesn't fit that model
+#use Mongoid qw(get_mongo ensure_indexes);	# can't extend Mongoid; doesn't fit that model
 
 use MooseX::Singleton;
 use MooseX::ClassAttribute;
@@ -12,7 +12,7 @@ use namespace::autoclean;
 has 'codes' => (is=>'ro', isa=>'HashRef', default=>sub{{}});
 has 'inv_codes' => (is=>'rw', isa=>'HashRef', default=>sub{{}});
 
-has 'collection' => (is=>'ro', isa=>'MongoDB::Collection', lazy=>1, builder=>'_get_collection');
+#has 'collection' => (is=>'ro', isa=>'MongoDB::Collection', lazy=>1, builder=>'_get_collection');
 has 'loaded' => (is=>'rw', isa=>'Int', default=>0);
 has 'reload' => (is=>'ro', isa=>'Int', default=>0);
 has 'append' => (is=>'ro', isa=>'Int', default=>0);
@@ -32,22 +32,14 @@ class_has indexes => (is=>'ro', isa=>'ArrayRef', default=>sub{
      {keys=>['code'], opts=>{unique=>1}},
     ]}
     );
+with 'Mongoid';
 
 sub _get_collection {
     my ($self)=@_;
     get_mongo($self->db_name, $self->collection_name);
 }
 
-sub mongo { shift->collection }
-
-
-
-sub BUILD_this_never_gets_call_fixme {
-    confess "BUILD";
-    my ($self, $options)=@_;
-    $self->load(%$options);
-    warn "Codes loaded\n";
-}
+#sub mongo { shift->collection }
 
 
 
@@ -61,13 +53,13 @@ sub load {
     ensure_indexes($class, $class->indexes);
 
     if ($self->reload) {
-	$self->collection->delete_all unless $self->append;
+	$self->mongo->delete_all unless $self->append; 
 	my $codes=do $self->code_file or dief "error reading %s: $!\n", $self->code_file;
 	while (my ($code,$desc)=each %$codes) {
 	    $self->add($code, $desc);
 	}
     } else {
-	$self->codes->{$_->{code}}=$_->{desc} for ($self->collection->find->all);
+	$self->codes->{$_->{code}}=$_->{desc} for ($self->mongo->find->all);
 	# Can't call $self->add because it tries to save new codes
     }
 
@@ -89,7 +81,6 @@ sub _build_next_code {
     if (! defined $_next_code) {
 	$_next_code=$self->n_codes;
     }
-    warn "_bnc: returning ", $_next_code+1;
     ++$_next_code;
 }
 
@@ -120,7 +111,6 @@ sub add {
     if (! defined $desc) {
 	$desc=$code;
 	$code=$self->next_code;
-	warn "adding new code $code=$desc\n";
     }
 
     # insure $code is numeric:
@@ -141,8 +131,7 @@ sub add {
     # now we can add the $code and $desc:
     $self->codes->{$code}=$desc;
     $self->inv_codes->{$desc}=$code;
-    my $report=$self->collection->save({code=>$code, desc=>$desc}, {safe=>1});
-    warn "adding $code->$desc: report is ", Dumper($report) if $ENV{DEBUG};
+    my $report=$self->mongo->save({code=>$code, desc=>$desc}, {safe=>1});
     $self->inc_next_code;
     $code;
 }
@@ -154,11 +143,8 @@ sub show {
     # Sort codes alphabetically: 
 
     my @numkeys=grep /^\d+$/, keys %{$self->codes};
-    warnf "%d codes\n", scalar @numkeys;
     my @sorted_descs=sort map {$self->codes->{$_}} @numkeys; # grep /^\d+$/, keys %$self;
-#    warn "sorted_descs are ", Dumper(\@sorted_descs);
     my $n_rows=int((scalar @sorted_descs)/$self->n_cols);
-#    warnf "%d entries, %d rows\n", scalar @sorted_descs, $n_rows;
 
     my @report;
     for (my $i=0; $i<$n_rows; $i++) {

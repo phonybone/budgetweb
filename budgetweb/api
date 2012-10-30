@@ -1,0 +1,7 @@
+/expense/$oid	GET, POST
+/expense/$oid/edit   html form
+/expense/search	     application/www-x-whatever
+		     fields: from Expense
+		     codes: big-ass array of checkbox? dropdown?
+		     also, new code box (with "apply to this expense" cb, default checked)
+

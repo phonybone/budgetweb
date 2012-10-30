@@ -16,6 +16,7 @@ use lib abs_path("$Bin/../..");
 our $class='Report';
 use Codes;
 use QueryGenerator;
+use Mongoid;
 
 BEGIN: {
   Options::use(qw(d q v h fuse=i query_file=s));

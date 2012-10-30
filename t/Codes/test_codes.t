@@ -27,12 +27,11 @@ sub main {
     $class->collection_name('codes_test');
     my $code_file=abs_path("$Bin/../../codes.pl");
     $class->initialize(reload=>1, code_file=>$code_file);
-    
     my $codes=$class->instance->load;
 
     isa_ok($codes, $class);
-    isa_ok($codes->collection, 'MongoDB::Collection');
-    cmp_ok($codes->collection->{name}, 'eq', 'codes_test');
+    isa_ok($codes->mongo, 'MongoDB::Collection');
+    cmp_ok($codes->mongo->{name}, 'eq', 'codes_test');
 
     test_load();
     test_curlies();
