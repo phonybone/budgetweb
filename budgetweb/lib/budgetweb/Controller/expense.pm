@@ -12,12 +12,20 @@ sub index :Path :Args(0) {
 
 sub base : Chained('/') PathPart('expense') CaptureArgs(1) {
     my ($self, $c, $oid)=@_;
-    my $expense=eval {Expense->find(_id=>$oid)};
+    Codes->initialize();
+    my $codes=Codes->instance->load;
+    my $expense=eval {Expense->new($oid)};
     if ($@) {
-	$self->status_not_found($c, message=>"Unable to located expense: oid=$oid");
+	$self->status_not_found($c, message=>"Unable to locate expense: oid=$oid");
 	$c->detach;
     }
     $c->stash->{expense}=$expense;
+}
+
+sub edit : Chained('base') {
+    my ($self, $c)=@_;
+    $c->stash->{template}='edit_expense.tt';
+    $c->forward('View::HTML');
 }
 
 __PACKAGE__->meta->make_immutable;

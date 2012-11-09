@@ -39,8 +39,6 @@ sub _get_collection {
     get_mongo($self->db_name, $self->collection_name);
 }
 
-#sub mongo { shift->collection }
-
 
 
 # initialize $self with code/desc pairs
