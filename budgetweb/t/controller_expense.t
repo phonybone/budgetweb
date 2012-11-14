@@ -11,7 +11,8 @@ use Test::More qw(no_plan);
 use FindBin qw($Bin);
 use Cwd 'abs_path';
 use lib abs_path("$Bin/../lib");
-use lib abs_path("$Bin/../..");
+use lib abs_path("$Bin/../..");	# for Expense.pm, Codes.pm, etc
+use lib "$Bin";
 
 use Options;			
 use TestExpenseREST;		# derived from PhonyBone::TestCase
@@ -32,8 +33,11 @@ sub main {
     my $tc=new TestExpenseREST(class=>$class);
     warnf "using %s\n", Expense->mongo_coords;
     $tc->test_compiles();
-    $tc->test_expense_GET('4fc50296256d55d966000044');
-
+    $tc->test_expense_GET('4fc50296256d55d9660003b2');
+    $tc->test_find_next('4fc50296256d55d9660003b2');
+    $tc->test_unknown;
+    $tc->test_get_codes;
+    $tc->test_expense_POST('4fc50296256d55d9660003b2');
 }
 
 main(@ARGV);

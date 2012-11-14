@@ -1,0 +1,8 @@
+upload tab
+tag expenses with "source" (eg, 'Victor' or 'Cynthia')
+allow editing of non-unknown records from reports
+table- and line-reports
+set desc textbox when code != unknown (also select?)
+add an alert if adding new code
+check vs. cheque nonsense
+fix duplicate codes (eg 'paris', 'Paris')

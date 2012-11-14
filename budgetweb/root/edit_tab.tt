@@ -1,0 +1,24 @@
+<table>
+<tr>
+  <td>Oid:</td><td><span id='exp_oid' /></td>
+</tr><tr>
+<td>Date: </td><td><span id='exp_date'></span>
+<span>Rank: </span><span id='exp_rank'></span></td>
+</tr><tr>
+<td>Amount</td><td id='exp_amount'></td>
+</tr><tr>
+<td>Cheque no.</td><td id='exp_check_no'></td>
+</tr><tr>
+<td>Description: </td><td id='exp_bank_desc'></td>
+</tr><tr>
+  <td><label for='code_input'>Code: </label></td>
+  <td><input id='exp_code_desc' />
+  <select id='exp_code_sel'></select>
+</tr><tr>
+  <td></td><td>
+  <button id='prev_exp'>&lt;</button>
+  <button id='next_exp'>&gt;</button>
+  </td>
+
+</tr>
+</table>

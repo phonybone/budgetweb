@@ -1,1 +1,17 @@
-This is edit expense
+<div>
+<h2>Edit Expense</h2>
+<table>
+<tr>
+<td>[% c.view("HTML").nice_date(expense.ts) %]</td>
+<td>[% c.view('HTML').nice_amount(expense.amount) %]</td>
+[% IF expense.cheque_no %]
+</tr><tr>
+<td>Cheque [% expense.cheque_no %]</td>
+[% END %]
+</tr><tr>
+<td>[% expense.bank_desc %]</td>
+</tr><tr>
+<td>Code: [% expense.codes.get(expense.code) %]</td>
+<td>[% c.view('HTML').code_select() %]</td>
+</tr>
+</table>

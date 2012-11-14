@@ -1,5 +1,6 @@
 package budgetweb;
 use Moose;
+with qw(PhonyBone::CatalystHelpers);
 use namespace::autoclean;
 
 use Catalyst::Runtime 5.80;

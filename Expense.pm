@@ -67,7 +67,7 @@ around BUILDARGS => sub {
 	}
 #	warn "args are ", Dumper($args);
 
-	warn "ref args is ", ref $args;
+#	warn "ref args is ", ref $args;
 	if (ref $args eq 'ARRAY') {
 	    remove_quotes_array($args);
 
@@ -138,7 +138,7 @@ sub remove_quotes_hashkeys {
     }
 }
 
-use overload '""' => \&as_string;
+#use overload '""' => \&as_string;
 sub as_string {
     my ($self)=@_;
     my $codes=$self->codes;

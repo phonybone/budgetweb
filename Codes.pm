@@ -88,6 +88,7 @@ sub inc_next_code {
 }
 
 
+# Return the code's description:
 sub get {
     my ($self, $code)=@_;
     confess "codes not loaded" unless $self->loaded;
@@ -100,6 +101,7 @@ sub get_inv {
 }
 
 # add a code/desc pair; if no code given, use next highest available code
+# writes to the db
 # return new numeric code
 sub add {
     my ($self, $code, $desc)=@_;

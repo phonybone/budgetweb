@@ -29,9 +29,9 @@ sub main {
     require_ok($class) or BAIL_OUT("$class has compile issues, quitting");
 #    $class->collection_name('expense_test');
     warnf "using %s\n", $class->mongo_coords;
-#    test_constructor();
+    test_constructor();
     test_db_lookup();
-#    test_regex2code();
+    test_regex2code();
 }
 
 sub test_constructor {

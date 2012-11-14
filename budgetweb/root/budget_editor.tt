@@ -1,0 +1,16 @@
+<div id='tabs'>
+<ul>
+  <li><a href='#edit_tab'>Edit Expenses</a></li>
+  <li><a href='#report_tab'>Reports</a></li>
+</ul>
+
+<div id='edit_tab'>
+[% INCLUDE edit_tab.tt %]
+</div>
+
+<div id='report_tab'>
+[% INCLUDE report_tab.tt %]
+</div>
+
+</div>
+
