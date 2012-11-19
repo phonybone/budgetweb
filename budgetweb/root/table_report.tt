@@ -1,0 +1,4 @@
+<!-- This is table_report.tt -->
+<pre>
+[% report.table_report %]
+</pre>

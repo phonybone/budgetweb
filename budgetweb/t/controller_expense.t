@@ -33,11 +33,12 @@ sub main {
     my $tc=new TestExpenseREST(class=>$class);
     warnf "using %s\n", Expense->mongo_coords;
     $tc->test_compiles();
-    $tc->test_expense_GET('4fc50296256d55d9660003b2');
-    $tc->test_find_next('4fc50296256d55d9660003b2');
+    my $oid='4fbc6f54f36deb3651000253';
+    $tc->test_expense_GET($oid);
+    $tc->test_find_next($oid);
     $tc->test_unknown;
     $tc->test_get_codes;
-    $tc->test_expense_POST('4fc50296256d55d9660003b2');
+    $tc->test_expense_POST($oid);
 }
 
 main(@ARGV);

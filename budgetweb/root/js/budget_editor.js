@@ -29,6 +29,8 @@ BudgetEditor.prototype={
 		    editor.n_expenses+=1;
 		    exp.rank=parseInt(i);
 		}
+		var msg=sprintf("%d expenses loaded", editor.n_expenses);
+		$('#save_msg').text(msg);
 		editor.display_expense();
 	    },
 	};
@@ -50,19 +52,16 @@ BudgetEditor.prototype={
 		editor.codes=data;
 		var i=0;
 		for (code in data) {
-		    editor.code_descs[i]=data[code];
-		    editor.desc2code[data[code]]=code;
+		    editor.code_descs[i]=data[code]; // build c2d
+		    editor.desc2code[data[code]]=code; // buil d2c
 		    i+=1;
 		}
-		editor.code_descs.sort();
+		editor.code_descs.sort(); // sort c2d
 		$('#exp_code_desc').autocomplete({source: editor.code_descs});
 		$('#exp_code_desc').focus();
-		jQuery.each(editor.code_descs, function(idx, code) {
-		    $('#exp_code_sel').append($('<option>', {
-			value: editor.desc2code[code], text: code
-		    }));
-		});
-		
+		// Populate code select:
+		populate_select_arr('#exp_code_sel', editor.code_descs)
+		populate_select_arr('#code_desc', editor.code_descs);
 		console.log('loaded codes');
 	    },
 	};
@@ -80,6 +79,8 @@ BudgetEditor.prototype={
 	    } else if (typeof oid == "object") {
 //	    } else if (typeof oid == "object" && typeof oid.code == "number") {
 		expense=oid;
+	    } else if (typeof oid == "number") {
+		expense=this.expenses_by_ts[oid];
 	    } else {
 		alert("Can't display oid: "+oid);
 		return;
@@ -104,8 +105,8 @@ BudgetEditor.prototype={
 	$('#exp_date').text(expense.date);
 	$('#exp_amount').text(sprintf("$%.2f", Math.abs(expense.amount)));
 	$('#exp_check_no').text(expense.cheque_no);
-	console.log('check_no: '+expense.check_no);
-	console.log('cheque_no: '+expense.cheque_no);
+//	console.log('check_no: '+expense.check_no);
+//	console.log('cheque_no: '+expense.cheque_no);
 	$('#exp_bank_desc').text(expense.bank_desc);
 	var code_desc=this.codes[expense.code];
 	console.log('code is '+expense.code+', desc is '+code_desc);
@@ -114,17 +115,21 @@ BudgetEditor.prototype={
 	} else {
 	    $('#exp_code_desc').val(code_desc);
 	}
+	$("#exp_code_sel").val(expense.code).attr('selected',true);
 	$('#exp_rank').text(expense.rank);
 	this.current_oid=expense._id['$oid'];
     },
 
     // Save the current expense using the code defined by code_desc
     save_exp : function(new_code) {
+	var editor=this;
+	if (new_code==undefined || new_code==null) {
+	    alert('save_exp: no new_code');
+	    return;
+	}
 	var oid=this.current_oid;
-	console.log('save_exp: oid is '+oid);
 	var current_exp=this.expenses[oid];
 	current_exp.code=new_code;
-	console.log('save_exp: saving '+JSON.stringify(current_exp));
 	var url='/expense/'+oid;
 	var settings={
 	    type: 'POST',
@@ -135,7 +140,9 @@ BudgetEditor.prototype={
 		alert('Unable to store new code: error='+jqXHR.status); 
 	    },
 	    success: function(data, status, jqXHR) { 
-		console.log(current_exp.bank_desc+' saved: new code is '+new_code);
+		var msg='"'+current_exp.bank_desc+'" saved: code is '+new_code;
+		msg+=': '+editor.codes[new_code];
+		$('#save_msg').text(msg);
 	    },
 	};
 	$.ajax(url,settings);
@@ -143,7 +150,17 @@ BudgetEditor.prototype={
 
     save_and_next_tb : function(event) {
 	event.preventDefault();
+
 	var new_desc=$('#exp_code_desc').val();
+	// Check for numeric code entered:
+	var num_code=parseInt(new_desc);
+	if (num_code > 0) {
+	    if (this.codes[num_code] != undefined) {
+		new_desc=this.codes[num_code];
+	    }
+	}
+	
+	// Look up description:
 	var new_code=this.desc2code[new_desc];
 	console.log('santb: new_desc is '+new_desc+', new_code is '+new_code);
 	if (new_code == null) {
@@ -191,9 +208,24 @@ BudgetEditor.prototype={
     next_exp : function(di) {
 	var current_exp=this.expenses[this.current_oid];
 	var rank=(current_exp.rank + di) % this.expenses_by_ts.length;
-	var to_display=this.expenses_by_ts[rank];
-	this.display_expense(to_display);
-    }
+	this.display_expense(this.oid2exp(rank));
+    },
+
+    start_upload : function() {
+	console.log('start_upload called');
+	$('#file_upload_progress').show();
+	return true;
+    },
+
+    stop_upload : function(success) {
+	console.log('stop_upload called');
+	if (success == 1) {
+	    $('#result').html("<span class='msg'>Upload successful</span>");
+	} else {
+	    $('#result').html("<span class='msg'>Upload failed</span>");
+	}
+	$('#file_upload_progress').hide();
+    },
 }
 
 $(document).ready(function() {
@@ -202,12 +234,19 @@ $(document).ready(function() {
     editor.fetch_unknown_expenses();
     editor.fetch_codes();
     $('#tabs').tabs();
-
+    
     // Callbacks:
     $('#prev_exp').on('click', function(event) { editor.next_exp(-1) });
     $('#next_exp').on('click', function(event) { editor.next_exp(1) });
-
+    
     $('#exp_code_sel').on('change', function(event) { editor.save_and_next_sel(event) });
     $('#exp_code_desc').on('change', function(event) { editor.save_and_next_tb(event) });
     console.log('ready() done');
+    
+    $('#upload_form').on('submit', editor.start_upload);
+    
+    $('#start').datepicker();
+    $('#stop').datepicker();
+
+    
 })

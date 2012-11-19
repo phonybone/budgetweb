@@ -1,0 +1,7 @@
+[% IF report %]
+  [% IF report.code %]
+    [% INCLUDE line_report.tt %]
+  [% ELSE %]
+    [% INCLUDE table_report.tt %]
+  [% END %]
+[% END %]

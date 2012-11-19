@@ -17,3 +17,21 @@ function toggle_more(id, vis) {
   return false;
 }
 
+// populate a select with an array
+// sel_id should include '#'
+// option value is index of array
+// text is arr[i]
+function populate_select_arr(sel_id, arr) {
+    jQuery.each(arr, function(idx, val) {
+	$(sel_id).append($('<option>', {
+	    value: arr[idx], text: val
+	}));
+    });
+}
+
+function show_args() {
+  console.log($('#start_date').val());
+  console.log($('#end_date').val());
+  console.log($('#report_code option:selected').val());
+}
+

@@ -1,1 +1,19 @@
-This is report_tab.tt
+<form id='report_form' name='report_form' method='POST' action='/expense/report' target='report_iframe'>
+<table>
+<tr>
+  <td><label for='start'>Starting</label></td>
+  <td><input id='start' name='start' /></td>
+</tr><tr>
+  <td><label for='stop'>Stoping</td>
+  <td><input id='stop' name='stop' /></td>
+</tr><tr>
+  <td><label for='code_desc'>Code</td>
+  <td><select id='code_desc' name='code_desc'></select></td>
+</tr><tr>
+  <td><input type='submit' value='Submit' /></td>
+</tr>
+</table>
+</form>
+
+<iframe id='report_iframe' name='report_iframe'>
+</iframe>

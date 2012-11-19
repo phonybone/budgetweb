@@ -9,6 +9,7 @@ __PACKAGE__->config(
     WRAPPER => 'header.tt',
     render_die => 1,
 );
+    
 
 sub nice_date {
     my ($self, $ts)=@_;

@@ -1,0 +1,4 @@
+<p>This is line_report.tt</p>
+<pre>
+[% report.line_report %]
+</pre>

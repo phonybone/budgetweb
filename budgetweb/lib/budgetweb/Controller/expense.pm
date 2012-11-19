@@ -4,8 +4,12 @@ use namespace::autoclean;
 use Expense;
 use Codes;
 use Data::Dumper;
+use PhonyBone::FileUtilities qw(warnf);
+use DateTime;
+use Report;
 
 BEGIN { extends 'Catalyst::Controller::REST'; }
+__PACKAGE__->config->{'serialize'}->{'default'} = 'text/x-yaml';    
 
 sub index :Path :Args(0) {
     my ( $self, $c ) = @_;
@@ -52,18 +56,29 @@ sub expense_POST {
     my $client_exp=eval {Expense->new(%$client_exp_data)};
 
     # check oid's match:
-    unless ($client_exp_data->{_id}->{'$oid'} eq $server_exp->_id->{value}) {
-	return $self->status_bad_request($c, message=>sprintf("oids don't match: (client_data) '%s' vs (server/url) %s", 
-							      $client_exp_data->{_id}->{value},
-							      $server_exp->_id->{value}));
+    my $cli_oid=$client_exp_data->{_id}->{'$oid'};
+    $c->log->debug(sprintf "cli_oid(%s): %s", ref $cli_oid, $cli_oid);
+    my $ser_oid=$server_exp->_id->{value};
+    $c->log->debug(sprintf "ser_oid(%s): %s", ref $ser_oid, $ser_oid);
+    unless ($cli_oid eq $ser_oid) {
+	my $msg=sprintf("oids don't match: (client_data) '%s' vs (server/url) '%s'", 
+			Dumper($cli_oid),
+			Dumper($ser_oid));
+	return $self->status_bad_request($c, message=>$msg);
     }
 
-    $client_exp_data->{_id}=bless $client_exp_data->{_id}, 'MongoDB::OID';
-    warn "expense_POST: client_exp_data is ",Dumper($client_exp_data);
-    my $new_expense=Expense->new(%$client_exp_data);
-    warn "saving ", $new_expense->as_string;
-    $new_expense->save;
-    $self->status_ok($c, entity=>unbless $new_expense);
+    delete $client_exp_data->{_id};
+    $server_exp->hash_assign(%$client_exp_data);
+    $server_exp->save;
+    $self->status_ok($c, entity=>$client_exp_data);
+
+    if (0) {
+	$client_exp_data->{_id}=bless $client_exp_data->{_id}, 'MongoDB::OID';
+	my $new_expense=Expense->new(%$client_exp_data);
+	warn "saving ", $new_expense->as_string, " to ", $new_expense->mongo_coords, "\n";
+	warnf "oid is %s", Dumper($new_expense->_id);
+	$new_expense->save;
+    }
 }
 
 # Return the HTML to edit an expense:
@@ -103,13 +118,12 @@ sub _get_next_oid {
 sub unknown : Local ActionClass('REST') {}
 sub unknown_GET {
     my ($self, $c)=@_;
-    my $cursor=Expense->mongo->find({code=>Codes->UNKNOWN})->limit(100)->sort({ts=>1});
+    my $cursor=Expense->mongo->find({code=>Codes->UNKNOWN})->sort({ts=>1});
     my @records=$cursor->all;
     do {
 	$_->{code_desc}='Unknown';
 	$_->{cheque_no}||='xxx';
     } for @records;
-    $c->log->debug('records[0] '.Dumper($records[0]));
     $c->stash->{rest}={count=>$cursor->count,
 		       expenses=>\@records};
 }
@@ -157,6 +171,70 @@ sub codes_POST {
 					 desc=>$new_desc});
 }
 
+sub report : Path('report') ActionClass('REST') {}
+sub report_POST {
+    my ($self, $c)=@_;
+    # args should be: start, end, and [optional] code
+    # if code is present, issue a line report
+    # otherwise, issue a table report
+    my %args;
+    $args{$_}=$c->request->params->{$_} for qw(start stop);
+    unless ($args{start} && $args{stop}) {
+	my $msg="missing start and/or stop";
+	return $self->status_bad_request($c, message=>$msg);
+    }
+    unless ($args{start}=~m|\d\d/\d\d/\d\d\d\d| &&
+	$args{stop}=~m|\d\d/\d\d/\d\d\d\d|) {
+	my $msg="bad format for start or stop";
+	return $self->status_bad_request($c, message=>$msg);
+    }
+    my $code_desc=$c->request->params->{code_desc};
+    if ($code_desc ne '?') {	# FIXME: literal '?' is an abomination
+	my $codes=Codes->instance->load;
+	my $code=$codes->get_inv($code_desc);
+	if ($code && $code > 0) {
+	    $args{code}=$code;
+	} else {
+	    my $msg="bad code '$code_desc'";
+	    return $self->status_bad_request($c, message=>$msg);
+	}
+    }
+    my $report=new Report(%args);
+    my $report_text = defined $report->code? $report->line_report : $report->table_report;
+    $c->stash->{report_text}=$report_text;
+    $c->stash->{report}=$report;
+    $c->stash->{template}='report.tt';
+    $c->response->content_type('text/html; charset=utf-8');
+    $c->forward('View::HTML');
+}
+
+sub _table_report {
+    my ($self, $cursor)=@_;
+}
+
+sub _line_report {
+    my ($self, $cursor)=@_;
+}
+
+sub upload : Local {
+    my ($self, $c, @args)=@_;
+    $c->log->debug('upload called');
+    my $uploads=$c->request->uploads; # hashref
+    while (my ($form_input_name, $upload)=each %$uploads) {
+	$c->log->debug(sprintf "filename: %s (%s), size: %d", 
+	    $upload->filename, $upload->type, $upload->size)
+    }
+
+    $c->forward('View::HTML');
+}
+
 __PACKAGE__->meta->make_immutable;
 
 1;
+
+__END__
+    $c->log->debug(sprintf "report: c->request->data are %s",
+		   Dumper($c->request->data));
+    $c->log->debug(sprintf "report: request->%s is %s", $_, 
+		   eval {Dumper($c->request->$_)} || $@)
+	for qw(arguments args content content_length data body input param params parameters query_parameters query_params);

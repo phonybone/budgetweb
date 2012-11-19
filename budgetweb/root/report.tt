@@ -1,2 +1,3 @@
-report.tt
-OBSOLETE!
+<pre>
+[% report_text %]
+</pre>

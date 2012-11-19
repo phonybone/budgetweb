@@ -1,0 +1,35 @@
+#!/usr/bin/env perl 
+use strict;
+use warnings;
+use Carp;
+use Data::Dumper;
+
+use Options;			# PhonyBone::Options, sorta
+
+use FindBin qw($Bin);
+use Cwd qw(abs_path);
+use lib abs_path("$Bin/../lib");
+use lib "$Bin";
+use Expense;
+use Codes;
+
+BEGIN: {
+  Options::use(qw(d q v h fuse=i));
+    Options::useDefaults(fuse => -1);
+    Options::get();
+    die Options::usage() if $options{h};
+    $ENV{DEBUG} = 1 if $options{d};
+    Codes->initialize;
+    Codes->instance->load;
+}
+
+
+sub main {
+    my @args=@_;
+    my $oid=shift @args or die usage(qw(oid));
+    my $exp=new Expense($oid);
+    print $exp->as_string, "\n";
+}
+
+main(@ARGV);
+

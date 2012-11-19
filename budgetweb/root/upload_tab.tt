@@ -1,0 +1,10 @@
+<p id='file_upload_progress' style='visibility:hidden'>Loading...</p>
+<p id='result'></p>
+<form id='upload_form' method='Post' enctype='multipart/form-data' action='/expense/upload' target='upload_target'>
+<label for='upload_filename'>Upload a file</label>
+<input type='file' name='upload_filename' size='40' />
+<input type='submit' value='Submit' />
+</form>
+<iframe id='upload_target' name='upload_target' src='#'
+        style="width:0;height:0;border:0px solid #fff;">
+</iframe>

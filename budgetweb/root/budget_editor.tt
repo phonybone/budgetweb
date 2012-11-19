@@ -2,6 +2,7 @@
 <ul>
   <li><a href='#edit_tab'>Edit Expenses</a></li>
   <li><a href='#report_tab'>Reports</a></li>
+  <li><a href='#upload_tab'>Upload</a></li>
 </ul>
 
 <div id='edit_tab'>
@@ -10,6 +11,10 @@
 
 <div id='report_tab'>
 [% INCLUDE report_tab.tt %]
+</div>
+
+<div id='upload_tab'>
+[% INCLUDE upload_tab.tt %]
 </div>
 
 </div>

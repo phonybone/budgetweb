@@ -1,0 +1,2 @@
+<p>test/report.tt</p>
+<pre>[% dump %]</pre>
