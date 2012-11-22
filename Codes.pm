@@ -18,6 +18,7 @@ has 'reload' => (is=>'ro', isa=>'Int', default=>0);
 has 'append' => (is=>'ro', isa=>'Int', default=>0);
 has 'code_file' => (is=>'ro', isa=>'Str');
 
+# the value of the next unassigned
 has 'next_code' => (is=>'rw', isa=>'Int', lazy => 1, builder=>'_build_next_code');
 has 'n_cols' => (is=>'ro', default=>3);
 
@@ -44,21 +45,27 @@ sub _get_collection {
 # initialize $self with code/desc pairs
 # read from file $self->code_file if $self->reload
 sub load {
-    my ($self, %options)=@_;
+    my ($self)=@_;
 
     return $self if $self->loaded && !$self->reload;
     my $class=ref $self || $self;
     ensure_indexes($class, $class->indexes);
 
     if ($self->reload) {
-	$self->mongo->delete_all unless $self->append; 
+	unless ($self->append) {
+	    my $report=$self->mongo->remove({}, {safe=>1});
+	    warn "Codes::(re)load: removed %d old codes", $report->{n} if $ENV{DEBUG};
+	}
 	my $codes=do $self->code_file or dief "error reading %s: $!\n", $self->code_file;
 	while (my ($code,$desc)=each %$codes) {
 	    $self->add($code, $desc);
 	}
     } else {
+	# load codes from db:
 	$self->codes->{$_->{code}}=$_->{desc} for ($self->mongo->find->all);
 	# Can't call $self->add because it tries to save new codes
+	$self->codes->{-1}='Ignore';
+	$self->codes->{-2}='Unknown';
     }
 
     my %inv_codes;
@@ -73,18 +80,20 @@ sub n_codes {
     scalar grep /^-?\d+$/, keys %{$self->codes};
 }
 
-my $_next_code;
 sub _build_next_code {
     my ($self)=@_;
-    if (! defined $_next_code) {
-	$_next_code=$self->n_codes;
-    }
-    ++$_next_code;
+    my $cursor=$self->mongo->find->sort({code=>-1})->limit(1);
+    my $_next_code=$cursor->has_next? $cursor->next->{code}+1 : 1;
+    warn "max _next_code2 is $_next_code";
+    $_next_code;
 }
 
 sub inc_next_code {
     my ($self)=@_;
-    $self->next_code($self->next_code()+1);
+    warn "inc_next_code called";
+    my $nc=$self->next_code;
+    $self->next_code($nc+1);
+    $nc;
 }
 
 
@@ -108,9 +117,12 @@ sub add {
 
     # if we're adding a code desc, it'll be defined as $code
     # and $desc won't be defined; hence, switch and use next_code:
+    my $inc_flag=0;
     if (! defined $desc) {
 	$desc=$code;
-	$code=$self->next_code;
+	$code=$self->next_code;	# don't inc here, we haven't checked yet for dups
+	$inc_flag=1;		# there are less hacky ways to do this
+	warn "Codes::add: only got desc '$desc', created new code $code";
     }
 
     # insure $code is numeric:
@@ -131,8 +143,10 @@ sub add {
     # now we can add the $code and $desc:
     $self->codes->{$code}=$desc;
     $self->inv_codes->{$desc}=$code;
-    my $report=$self->mongo->save({code=>$code, desc=>$desc}, {safe=>1});
-    $self->inc_next_code;
+    my $icode=$code+0;		# ensure it's an int
+    warn "add: about to save { $icode=>$desc }";
+    my $report=$self->mongo->save({code=>$icode, desc=>$desc}, {safe=>1});
+    $self->inc_next_code if $inc_flag;
     $code;
 }
 

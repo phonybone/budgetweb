@@ -15,7 +15,7 @@ has 'codes' => (is=>'ro', isa=>'Codes', required=>1);
 
 # options:
 has 'verbose' => (is=>'rw', isa=>'Int', default=>0);
-has 'regex_file' => (is=>'ro', isa=>'Str', required=>1);
+has 'regex_file' => (is=>'ro', isa=>'Str');
 
 
 sub load_file_expenses {
@@ -111,7 +111,10 @@ sub interactive_add_codes {
 sub regex2code {
     my ($self)=@_;
 
-    my $d2c=new Desc2Code(regex_file=>$self->regex_file);
+    my $regex_file=$self->regex_file;
+    return 0 unless $regex_file && -r $regex_file;
+
+    my $d2c=new Desc2Code(regex_file=>$regex_file);
     my $n_assigned=0;
     my $expenses=Expense->find({code=>Codes->UNKNOWN});
     warnf "%d new expenses w/code==UNKNOWN\n", scalar @$expenses;

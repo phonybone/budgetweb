@@ -9,7 +9,10 @@ use DateTime;
 use Report;
 
 BEGIN { extends 'Catalyst::Controller::REST'; }
-__PACKAGE__->config->{'serialize'}->{'default'} = 'text/x-yaml';    
+
+# This produces 'deprecated' warnings; 
+# Please see 'CONFIGURATION' in Catalyst::Controller::REST.
+#__PACKAGE__->config->{'serialize'}->{'default'} = 'text/x-yaml';    
 
 sub index :Path :Args(0) {
     my ( $self, $c ) = @_;
@@ -38,7 +41,7 @@ sub expense_GET {
     my $expense=$c->stash->{expense} or die "no expense";
     my $record=unbless $expense;
     $c->stash->{rest}=$record;
-#    $c->log->debug('got here3');
+
 # Last line was added to magically prevent an exception.  The exception 
 # was "can't call method 'codes' on unbless reference".  Commenting
 # out the string overload in Expense also caused the exception to go away,
@@ -48,18 +51,17 @@ sub expense_GET {
 
 sub expense_POST {
     my ($self, $c)=@_;
+
+    # retrieve server exp and client exp data:
     my $server_exp=$c->stash->{expense} or die "wtf??? no stash->{expense}";
     my $client_exp_data=$c->req->data or 
 	return $self->status_bad_request($c, message=>"No data supplied");
     $client_exp_data->{cheque_no}=0 if $client_exp_data->{cheque_no} eq 'xxx';
-    $c->log->debug('client_exp_data: '.Dumper($client_exp_data));
-    my $client_exp=eval {Expense->new(%$client_exp_data)};
+    $c->log->debug("exp_POST: cli_exp_data is ".Dumper($client_exp_data));
 
     # check oid's match:
     my $cli_oid=$client_exp_data->{_id}->{'$oid'};
-    $c->log->debug(sprintf "cli_oid(%s): %s", ref $cli_oid, $cli_oid);
     my $ser_oid=$server_exp->_id->{value};
-    $c->log->debug(sprintf "ser_oid(%s): %s", ref $ser_oid, $ser_oid);
     unless ($cli_oid eq $ser_oid) {
 	my $msg=sprintf("oids don't match: (client_data) '%s' vs (server/url) '%s'", 
 			Dumper($cli_oid),
@@ -67,18 +69,34 @@ sub expense_POST {
 	return $self->status_bad_request($c, message=>$msg);
     }
 
-    delete $client_exp_data->{_id};
-    $server_exp->hash_assign(%$client_exp_data);
+    # if no client code provided, but client desc present,
+    # look up desc or create a new code as necessary:
+    unless ($client_exp_data->{code}) {
+	my $new_desc=$client_exp_data->{new_desc} or do {
+	    my $msg="no code and no new_desc";
+	    return $self->status_bad_request($c, message=>$msg);
+	};
+	my $codes=Codes->instance->load;
+	unless ($codes->get_inv($new_desc)) {
+	    my $new_code=eval{$codes->add($new_desc)};
+	    if ($@) {
+		return $self->status_bad_request($c, message=>$@);
+		# fixme: handle this better somehow
+	    }
+	    $client_exp_data->{code}=$new_code;
+	    $c->log->debug("new_code is $new_code, new_desc is $new_desc");
+	} else {
+	    $c->log->debug("desc '$new_desc' already exists");
+	}
+    } else {
+	$c->log->debug('exp code predefined: '.$client_exp_data->{code});
+    }
+   
+    # update Expense and save:
+    $server_exp->code($client_exp_data->{code});
     $server_exp->save;
     $self->status_ok($c, entity=>$client_exp_data);
 
-    if (0) {
-	$client_exp_data->{_id}=bless $client_exp_data->{_id}, 'MongoDB::OID';
-	my $new_expense=Expense->new(%$client_exp_data);
-	warn "saving ", $new_expense->as_string, " to ", $new_expense->mongo_coords, "\n";
-	warnf "oid is %s", Dumper($new_expense->_id);
-	$new_expense->save;
-    }
 }
 
 # Return the HTML to edit an expense:
@@ -86,7 +104,6 @@ sub edit_expense : Chained('base') {
     my ($self, $c)=@_;
     warn "edit called";
     $c->stash->{template}='edit_expense.tt';
-    $c->stash->{dump}=Dumper($c->stash->{expense});
     $c->forward('View::HTML');
 }
 
@@ -120,10 +137,10 @@ sub unknown_GET {
     my ($self, $c)=@_;
     my $cursor=Expense->mongo->find({code=>Codes->UNKNOWN})->sort({ts=>1});
     my @records=$cursor->all;
-    do {
-	$_->{code_desc}='Unknown';
-	$_->{cheque_no}||='xxx';
-    } for @records;
+#    do {
+#	$_->{code_desc}='Unknown';
+#	$_->{cheque_no}||='xxx';
+#    } for @records;
     $c->stash->{rest}={count=>$cursor->count,
 		       expenses=>\@records};
 }
@@ -151,9 +168,11 @@ sub codes_GET {
     $c->stash->{rest}=$codes->codes; # n2desc version
 }
 
+# add a new code/desc:
 sub codes_POST {
     my ($self, $c)=@_;
     my $new_desc=$c->req->data->{new_desc};
+    $c->log->debug("codes_POST: new_desc is $new_desc");
     unless ($new_desc) {
 	my $msg="missing code and/or desc";
 	return $self->status_bad_request($c, message=>$msg);
@@ -166,12 +185,15 @@ sub codes_POST {
 					     desc=>$new_desc});
     }
 
+    $c->log->debug("adding $new_desc");
     my $new_code=$codes->add($new_desc);
     return $self->status_ok($c, entity=>{code=>$new_code,
 					 desc=>$new_desc});
 }
 
 sub report : Path('report') ActionClass('REST') {}
+# Return a report based on request args
+# Report is currently HTML based on Report.pm
 sub report_POST {
     my ($self, $c)=@_;
     # args should be: start, end, and [optional] code

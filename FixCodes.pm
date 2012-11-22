@@ -70,6 +70,18 @@ sub add_ts {
     $stats;
 }
 
+sub t2i {
+    my ($self, $options)=@_;
+    my $mongo=$self->codes->mongo;
+    my $cursor=$mongo->find;
+    while ($cursor->has_next) {
+	my $rec=$cursor->next;
+	$rec->{code}=int($rec->{code});
+	my $rep=$mongo->save($rec, {safe=>1});
+	warn Dumper($rep) if $rep->{err};
+    }
+}
+
 __PACKAGE__->meta->make_immutable;
 
 1;

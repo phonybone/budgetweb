@@ -35,6 +35,7 @@ sub main {
 
     test_load();
     test_curlies();
+    test_next_code();
     test_add();
 }
 
@@ -58,9 +59,26 @@ sub test_add {
     cmp_ok($codes->get($new_code), 'eq', $new_desc, "new code: $new_code=$new_desc");
 
     # try adding a dup code:
-    eval {my $new_code2=$codes->add($new_desc)};
+    my $nc=$codes->next_code;	# next unassigned
+    eval {$codes->add($new_desc)};
     like($@, qr/already exists/, "caught add dup code");
-    
+    cmp_ok($codes->next_code, '==', $nc, "next_code is still $new_code");
+
+    # and again:
+    $nc=$codes->next_code;	# next unassigned
+    eval {$codes->add($new_desc)};
+    like($@, qr/already exists/, "caught add dup code");
+    cmp_ok($codes->next_code, '==', $nc, "next_code is still $new_code");
+}
+
+sub test_next_code {
+    my $codes=Codes->instance;
+    my $nc=$codes->next_code;
+    warn "next_code is $nc";
+    my $cursor=$codes->mongo->find({code=>$nc});
+    ok (!$cursor->has_next, "No existing code for next_code=$nc");
+    cmp_ok($codes->next_code, '==', $nc, "next_code doesn't inc");
+    cmp_ok($codes->next_code, '==', $nc, "next_code doesn't inc");
 }
 
 main(@ARGV);

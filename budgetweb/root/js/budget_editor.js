@@ -62,7 +62,6 @@ BudgetEditor.prototype={
 		// Populate code select:
 		populate_select_arr('#exp_code_sel', editor.code_descs)
 		populate_select_arr('#code_desc', editor.code_descs);
-		console.log('loaded codes');
 	    },
 	};
 	$.ajax(url,settings);
@@ -71,6 +70,8 @@ BudgetEditor.prototype={
     },
 
     // Convert an oid, or null/undefined, or and expense, into an expense
+    // if no oid passed, return current exp or first expense 
+    // from expenses_by_ts
     oid2exp : function(oid) {
 	var expense;
 	if (oid != null && oid != undefined) {
@@ -86,7 +87,11 @@ BudgetEditor.prototype={
 		return;
 	    }
 	} else {		// find first
-	    expense=this.expenses_by_ts[0];
+	    if (this.current_oid != 0) {
+		expense=this.expenses[this.current_oid]
+	    } else {
+		expense=this.expenses_by_ts[0];
+	    }
 	}
 	return expense;
     },
@@ -98,38 +103,36 @@ BudgetEditor.prototype={
 	    alert('No expense for oid='+oid+'???');
 	    return;
 	}
-	console.log('displaying expense #'+expense.rank);
 
 	// Set display fields:
 	$('#exp_oid').text(expense._id['$oid']);
 	$('#exp_date').text(expense.date);
 	$('#exp_amount').text(sprintf("$%.2f", Math.abs(expense.amount)));
 	$('#exp_check_no').text(expense.cheque_no);
-//	console.log('check_no: '+expense.check_no);
-//	console.log('cheque_no: '+expense.cheque_no);
 	$('#exp_bank_desc').text(expense.bank_desc);
 	var code_desc=this.codes[expense.code];
-	console.log('code is '+expense.code+', desc is '+code_desc);
-	if (code_desc == 'Unknown') {
-	    $('#exp_code_desc').val('');
-	} else {
-	    $('#exp_code_desc').val(code_desc);
-	}
+	$('#exp_code_desc').val(code_desc == 'Unknown'? '' : code_desc);
+
 	$("#exp_code_sel").val(expense.code).attr('selected',true);
 	$('#exp_rank').text(expense.rank);
 	this.current_oid=expense._id['$oid'];
     },
 
     // Save the current expense using the code defined by code_desc
-    save_exp : function(new_code) {
+    // If new_code is null/undefined, send new_desc in it's place
+    // and let the server assign a new code as necessary
+    save_exp : function(new_code, new_desc) {
 	var editor=this;
-	if (new_code==undefined || new_code==null) {
-	    alert('save_exp: no new_code');
-	    return;
-	}
+//	if (new_code==undefined || new_code==null) {
+//	    new_code=
+//	    alert('save_exp: no new_code');
+//	    return;
+//	}
 	var oid=this.current_oid;
 	var current_exp=this.expenses[oid];
-	current_exp.code=new_code;
+	current_exp.new_desc=new_desc
+	current_exp.code=new_code; // if new_code not defined, server handles
+
 	var url='/expense/'+oid;
 	var settings={
 	    type: 'POST',
@@ -140,8 +143,21 @@ BudgetEditor.prototype={
 		alert('Unable to store new code: error='+jqXHR.status); 
 	    },
 	    success: function(data, status, jqXHR) { 
-		var msg='"'+current_exp.bank_desc+'" saved: code is '+new_code;
-		msg+=': '+editor.codes[new_code];
+		// store new code/desc in editor.codes:
+		if (editor.codes[data.code]==undefined) {
+		    editor.save_code(data.code, data.new_desc);
+		}
+
+		// update current exp w/new code
+		var oid=data._id['$oid'];
+		var current_exp=editor.oid2exp(oid); // current_exp
+		current_exp.code=data.code;
+		
+		// Update the code select:
+
+		// Show a message
+		var msg='"'+data.bank_desc+'" saved: code is '+data.code;
+		msg+=': '+data.new_desc;
 		$('#save_msg').text(msg);
 	    },
 	};
@@ -153,55 +169,35 @@ BudgetEditor.prototype={
 
 	var new_desc=$('#exp_code_desc').val();
 	// Check for numeric code entered:
-	var num_code=parseInt(new_desc);
-	if (num_code > 0) {
+	var new_code=parseInt(new_desc);
+	if (new_code > 0) {
 	    if (this.codes[num_code] != undefined) {
 		new_desc=this.codes[num_code];
+		console.log('number entered: '+num_code+'->'+new_desc);
+	    } else {
+		alert('Unknown code: '+new_code);
+		// Leave current exp as is
+		return;
 	    }
 	}
-	
+
 	// Look up description:
-	var new_code=this.desc2code[new_desc];
-	console.log('santb: new_desc is '+new_desc+', new_code is '+new_code);
-	if (new_code == null) {
-	    console.log('calling create_code');
-	    new_code=this.create_code(new_desc);
-	}
-	this.save_exp(new_code);
+	var new_code=this.desc2code[new_desc]; // might be undefined; ok
+	this.save_exp(new_code, new_desc);
 	this.next_exp(1);
     },
 
     save_and_next_sel : function(event) {
 	event.preventDefault();
 	var new_code=$('#exp_code_sel :selected').val();
-	console.log('sans: selected is '+new_code);
-	this.save_exp(new_code);
+	var new_desc=$('#exp_code_sel option:selected').val();
+	this.save_exp(new_code, new_desc);
 	this.next_exp(1);
     },
 
-    // Create and store a new code:
-    create_code : function(new_desc) {
-	var editor=this;
-	var url='/expense/codes';
-	var new_code;
-	var settings={
-	    type: 'POST',
-	    accepts: 'application/json',
-	    contentType: 'application/json',
-	    data: JSON.stringify({'new_desc' : new_desc}),
-	    error: function(jqXHR, msg, excp) { 
-		alert('Unable to store new code: error='+jqXHR.status); 
-	    },
-	    success: function(data, status, jqXHR) { 
-		new_code=data.new_code;
-		new_desc=data.new_desc;
-		console.log('new code added: '+new_code+'->'+new_desc);
-		editor.codes[new_code]=new_desc;
-		editor.desc2code[new_desc]=new_code;
-	    },
-	};
-	$.ajax(url,settings);
-	return new_code;
+    save_code : function(new_code, new_desc) {
+	this.codes[new_code]=new_desc;
+	this.desc2code[new_desc]=new_code;
     },
 
     // Callback for '<' and '>' buttons:

@@ -1,3 +1,24 @@
+19Nov12
+Implement file upload
+Implement 'total' in line report
+Format reports, instead of just using <pre>
+Design a UI where all/many codes are visible; array of checkbox maybe?
+Why do some codes only show up as numbers in report?  Probable
+  db inconsistency from 'fix_codes'
+Edit existing expenses (to fix errors):
+  Need 'search' function
+Implement "%d expenses like this one: apply code to all?"
+Why 'new code' not working?  Getting 'code already exists' error in
+  log.
+
+20Nov12:
+Fix bug regarding create_code: can't ask server to create a new
+  code with ajax, because of asynch issues.  Better to try to 
+  catch in expense_POST, where there's no code (or maybe a special
+  "create_code" flag?)
+
+Deploy
+
 8Aug12
 Continue testing removal of dups; have to figure out good test
 strategy.
