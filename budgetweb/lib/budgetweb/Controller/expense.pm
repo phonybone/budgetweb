@@ -80,7 +80,8 @@ sub expense_POST {
 	unless ($codes->get_inv($new_desc)) {
 	    my $new_code=eval{$codes->add($new_desc)};
 	    if ($@) {
-		return $self->status_bad_request($c, message=>$@);
+		my $msg="Error adding new code: $@";
+		return $self->status_bad_request($c, message=>$msg);
 		# fixme: handle this better somehow
 	    }
 	    $client_exp_data->{code}=$new_code;

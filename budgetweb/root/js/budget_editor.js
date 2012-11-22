@@ -123,17 +123,13 @@ BudgetEditor.prototype={
     // and let the server assign a new code as necessary
     save_exp : function(new_code, new_desc) {
 	var editor=this;
-//	if (new_code==undefined || new_code==null) {
-//	    new_code=
-//	    alert('save_exp: no new_code');
-//	    return;
-//	}
-	var oid=this.current_oid;
-	var current_exp=this.expenses[oid];
+//	var oid=this.current_oid;
+//	var current_exp=this.expenses[oid];
+	var current_exp=this.oid2exp();
 	current_exp.new_desc=new_desc
 	current_exp.code=new_code; // if new_code not defined, server handles
 
-	var url='/expense/'+oid;
+	var url='/expense/'+editor.current_oid;
 	var settings={
 	    type: 'POST',
 	    accepts: 'application/json',
@@ -143,9 +139,16 @@ BudgetEditor.prototype={
 		alert('Unable to store new code: error='+jqXHR.status); 
 	    },
 	    success: function(data, status, jqXHR) { 
-		// store new code/desc in editor.codes:
+		// store new code/desc in editor.codes, and
+		// add a new option to #exp_code_sel:
 		if (editor.codes[data.code]==undefined) {
 		    editor.save_code(data.code, data.new_desc);
+		    var option_data=new Object();
+		    option_data[data['code']]=data.new_desc;
+		    console.log('option_data is '+JSON.stringify(option_data));
+		    $('#exp_code_sel').append($('<option></option>')
+					      .attr("value", data.code)
+					      .text(data.new_desc));
 		}
 
 		// update current exp w/new code
@@ -154,7 +157,7 @@ BudgetEditor.prototype={
 		current_exp.code=data.code;
 		
 		// Update the code select:
-
+		
 		// Show a message
 		var msg='"'+data.bank_desc+'" saved: code is '+data.code;
 		msg+=': '+data.new_desc;
