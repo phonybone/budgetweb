@@ -33,6 +33,10 @@ sub main {
     my $tc=new TestExpenseREST(class=>$class);
     warnf "using %s\n", Expense->mongo_coords;
     $tc->test_compiles();
+
+    $tc->test_upload("$Bin/export.csv");
+    exit;
+
     my $oid='4fbc6f54f36deb3651000253';
     $tc->test_expense_GET($oid);
     $tc->test_find_next($oid);

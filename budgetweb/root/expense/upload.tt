@@ -1,1 +1,8 @@
-<p>This gets sent to the hidden iframe</p>
+[% IF error %]Error: [% error %]
+[% ELSE %]
+<table border='0'>
+<tr><td>File:</td>                     <td>[% stats.filename %]</td></tr>
+<tr><td>Saved Expenses</td>            <td>[% stats.n_saved %]</td></tr>
+<tr><td>Codes Assigned from Regexs</td><td>[% stats.n_regex_assigned %]</td></tr>
+</tr></table>
+[% END %]

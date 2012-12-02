@@ -3,6 +3,11 @@ use Moose;
 use namespace::autoclean;
 use Expense;
 use Codes;
+use MoneyDB;
+use budgetweb::config;
+has 'conf' => (is=>'ro', isa=>'budgetweb::config', 
+	       default=>sub { new budgetweb::config() });
+
 use Data::Dumper;
 use PhonyBone::FileUtilities qw(warnf);
 use DateTime;
@@ -57,7 +62,7 @@ sub expense_POST {
     my $client_exp_data=$c->req->data or 
 	return $self->status_bad_request($c, message=>"No data supplied");
     $client_exp_data->{cheque_no}=0 if $client_exp_data->{cheque_no} eq 'xxx';
-    $c->log->debug("exp_POST: cli_exp_data is ".Dumper($client_exp_data));
+#    $c->log->debug("exp_POST: cli_exp_data is ".Dumper($client_exp_data));
 
     # check oid's match:
     my $cli_oid=$client_exp_data->{_id}->{'$oid'};
@@ -85,12 +90,7 @@ sub expense_POST {
 		# fixme: handle this better somehow
 	    }
 	    $client_exp_data->{code}=$new_code;
-	    $c->log->debug("new_code is $new_code, new_desc is $new_desc");
-	} else {
-	    $c->log->debug("desc '$new_desc' already exists");
 	}
-    } else {
-	$c->log->debug('exp code predefined: '.$client_exp_data->{code});
     }
    
     # update Expense and save:
@@ -103,7 +103,6 @@ sub expense_POST {
 # Return the HTML to edit an expense:
 sub edit_expense : Chained('base') {
     my ($self, $c)=@_;
-    warn "edit called";
     $c->stash->{template}='edit_expense.tt';
     $c->forward('View::HTML');
 }
@@ -165,15 +164,19 @@ sub codes : Local ActionClass('REST') {}
 sub codes_GET {
     my ($self, $c)=@_;
     eval {Codes->initialize};
-    my $codes=Codes->instance->load;
-    $c->stash->{rest}=$codes->codes; # n2desc version
+    eval {
+	my $codes=Codes->instance->load;
+	$c->stash->{rest}=$codes->codes; # n2desc version
+    };
+    if ($@) {
+	return $self->status_bad_request($c, message=>"Error loading codes: $@");
+    }
 }
 
 # add a new code/desc:
 sub codes_POST {
     my ($self, $c)=@_;
     my $new_desc=$c->req->data->{new_desc};
-    $c->log->debug("codes_POST: new_desc is $new_desc");
     unless ($new_desc) {
 	my $msg="missing code and/or desc";
 	return $self->status_bad_request($c, message=>$msg);
@@ -186,7 +189,6 @@ sub codes_POST {
 					     desc=>$new_desc});
     }
 
-    $c->log->debug("adding $new_desc");
     my $new_code=$codes->add($new_desc);
     return $self->status_ok($c, entity=>{code=>$new_code,
 					 desc=>$new_desc});
@@ -241,13 +243,48 @@ sub _line_report {
 
 sub upload : Local {
     my ($self, $c, @args)=@_;
-    $c->log->debug('upload called');
-    my $uploads=$c->request->uploads; # hashref
-    while (my ($form_input_name, $upload)=each %$uploads) {
-	$c->log->debug(sprintf "filename: %s (%s), size: %d", 
-	    $upload->filename, $upload->type, $upload->size)
-    }
+    $c->response->content_type('text/html; charset=utf-8');
+    my $stats={};
 
+    my $uploads=$c->request->uploads; # hashref
+    my @filenames=();
+    while (my ($form_input_name, $upload)=each %$uploads) {
+	# copy the temp file to a known location:
+	my $filename=$upload->filename;
+	my $target="/tmp/$filename";
+	unless ($upload->link_to($target) || $upload->copy_to($target)) {
+	    $c->stash->{error}="Unable to retrieve '$filename': $!";
+	    $c->detach('View::HTML');
+	}
+
+	push @filenames, $target;
+    }
+    unless (@filenames) {
+	$c->stash->{error}='No submitted file';
+	$c->detach('View::HTML');
+    }
+    if (@filenames > 1) {
+	$c->stash->{error}='Too many files (???)';
+	$c->detach('View::HTML');
+    }
+    my $filename=$filenames[0];
+
+    my $codes=Codes->instance->load;
+    my $regex_file=$self->conf->get('regex_file');
+    eval {MoneyDB->initialize(codes=>$codes, regex_file=>$regex_file)};
+    my $app=MoneyDB->instance;
+
+    eval {
+	my $expenses=$app->load_file_expenses($filename); # success?
+	do {$_->save} for @$expenses;
+	$stats->{n_saved}=scalar @$expenses;
+	$stats->{n_regex_assigned}=$app->regex2code($expenses);
+	$stats->{filename}=$filename;
+    };
+    $stats->{errors}="error: $@" if $@;
+
+    $c->stash->{stats}=$stats;
+    $c->log->debug(Dumper($stats));
     $c->forward('View::HTML');
 }
 

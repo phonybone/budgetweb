@@ -115,6 +115,17 @@ sub test_expense_POST : Testcase {
     is_deeply($record, $record2, 'round trip successful');
 }
 
+sub test_upload : Testcase {
+    my ($self, $filename)=@_;
+    my $request=POST("/expense/upload", 
+		     'Content-type' => 'form-data',
+		     Content=>[file=>$filename, user=>'Victor'],
+	);
+    my $response=request $request;
+    warn Dumper($response);
+    
+}
+
 __PACKAGE__->_init;
 __PACKAGE__->meta->make_immutable;
 

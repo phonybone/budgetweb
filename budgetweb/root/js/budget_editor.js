@@ -29,8 +29,10 @@ BudgetEditor.prototype={
 		    editor.n_expenses+=1;
 		    exp.rank=parseInt(i);
 		}
+		
 		var msg=sprintf("%d expenses loaded", editor.n_expenses);
 		$('#save_msg').text(msg);
+		console.log(msg);
 		editor.display_expense();
 	    },
 	};
@@ -46,7 +48,7 @@ BudgetEditor.prototype={
 	    accepts: 'application/json',
 	    contentType: 'application/json',
 	    error: function(jqXHR, msg, excp) { 
-		alert('Unable to fetch codes: error='+jqXHR.status); 
+		alert('Unable to fetch codes: error='+jqXHR.statusText); 
 	    },
 	    success: function(data, status, jqXHR) { 
 		editor.codes=data;
@@ -123,8 +125,6 @@ BudgetEditor.prototype={
     // and let the server assign a new code as necessary
     save_exp : function(new_code, new_desc) {
 	var editor=this;
-//	var oid=this.current_oid;
-//	var current_exp=this.expenses[oid];
 	var current_exp=this.oid2exp();
 	current_exp.new_desc=new_desc
 	current_exp.code=new_code; // if new_code not defined, server handles
@@ -145,7 +145,6 @@ BudgetEditor.prototype={
 		    editor.save_code(data.code, data.new_desc);
 		    var option_data=new Object();
 		    option_data[data['code']]=data.new_desc;
-		    console.log('option_data is '+JSON.stringify(option_data));
 		    $('#exp_code_sel').append($('<option></option>')
 					      .attr("value", data.code)
 					      .text(data.new_desc));
@@ -176,8 +175,7 @@ BudgetEditor.prototype={
 	if (new_code > 0) {
 	    if (this.codes[num_code] != undefined) {
 		new_desc=this.codes[num_code];
-		console.log('number entered: '+num_code+'->'+new_desc);
-	    } else {
+ 	    } else {
 		alert('Unknown code: '+new_code);
 		// Leave current exp as is
 		return;
@@ -186,6 +184,15 @@ BudgetEditor.prototype={
 
 	// Look up description:
 	var new_code=this.desc2code[new_desc]; // might be undefined; ok
+
+	// If no new_code, throw up a dialog:
+	if (new_code==undefined) {
+	    this.pending_desc=$('#exp_code_desc').val()
+	    $('#new_code_confirm').text(this.pending_desc); // set span in dialog
+	    $('#new_code_dialog').dialog('open');
+	    return;
+	}
+
 	this.save_exp(new_code, new_desc);
 	this.next_exp(1);
     },
@@ -210,14 +217,14 @@ BudgetEditor.prototype={
 	this.display_expense(this.oid2exp(rank));
     },
 
+    // #upload_form callback for 'submit':
     start_upload : function() {
-	console.log('start_upload called');
 	$('#file_upload_progress').show();
 	return true;
     },
 
+    // not currently used (ajax artifact) (fixme):
     stop_upload : function(success) {
-	console.log('stop_upload called');
 	if (success == 1) {
 	    $('#result').html("<span class='msg'>Upload successful</span>");
 	} else {
@@ -235,17 +242,34 @@ $(document).ready(function() {
     $('#tabs').tabs();
     
     // Callbacks:
+    // Edit tab:
     $('#prev_exp').on('click', function(event) { editor.next_exp(-1) });
     $('#next_exp').on('click', function(event) { editor.next_exp(1) });
     
     $('#exp_code_sel').on('change', function(event) { editor.save_and_next_sel(event) });
     $('#exp_code_desc').on('change', function(event) { editor.save_and_next_tb(event) });
-    console.log('ready() done');
+
+    // Edit: new code confirmation dialog:
+    var dialog_buttons={
+	'Yes': function(e) {
+	    editor.save_exp(null, editor.pending_desc);
+	    editor.next_exp(1);
+	    $('#new_code_dialog').dialog('close');
+	},
+	'No' : function(e) {			  
+	    $('#new_code_dialog').dialog('close');
+	}
+    }
+    $('#new_code_dialog').dialog({ autoOpen: false, buttons : dialog_buttons });
     
-    $('#upload_form').on('submit', editor.start_upload);
-    
+    // Report tab:
     $('#start').datepicker();
     $('#stop').datepicker();
 
-    
+    // Upload tab:
+    $('#upload_form').on('submit', editor.start_upload);
+    $('#upload_target').load(function () {
+	editor.fetch_unknown_expenses();
+    });
+    console.log('ready() done');
 })

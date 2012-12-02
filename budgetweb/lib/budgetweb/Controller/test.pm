@@ -13,8 +13,12 @@ sub index :Path :Args(0) {
 
 sub report :Local {
     my ($self, $c)=@_;
-    $c->log->debug(sprintf "test/report: request is %s", Dumper($c->request));
-    $c->stash->{dump}=Dumper($c->request);
+#    $c->log->debug(sprintf "test/report: request jfds is %s", Dumper($c->request));
+#    $c->stash->{dump}=Dumper($c->request);
+    
+    $c->add_css('/jquery-ui.css');
+    $c->add_js_script('/jquery-1.8.2.js');
+    $c->add_js_script('/jquery-ui.js');
     $c->forward('View::HTML');
 }
 

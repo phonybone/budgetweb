@@ -1,2 +1,17 @@
 <p>test/report.tt</p>
-<pre>[% dump %]</pre>
+<button id='opener'>Open the Dialog, Hal</button>
+<div id='dialog' title='Dialog title'>I'm a dialog test</div>
+<script>
+var buttons={ok : function(e) { 
+    alert('ok pressed') 
+    $('#dialog').dialog('close');
+    },
+    'not ok' : function(e) { 
+    alert('not ok pressed') 
+    $('#dialog').dialog('close');
+    }};
+$('#dialog').dialog({ autoOpen: false, buttons : buttons });
+$('#opener').on('click', function() {
+  $('#dialog').dialog('open');
+});
+</script>

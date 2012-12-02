@@ -17,5 +17,9 @@
 [% INCLUDE upload_tab.tt %]
 </div>
 
+<div id='new_code_dialog' title='Confirm'>
+Confirm new code <span id='new_code_confirm'></span>
+</div>
+
 </div>
 
