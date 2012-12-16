@@ -7,6 +7,8 @@ use MooseX::ClassAttribute;
 
 use Carp;
 use Data::Dumper;
+use Text::Autoformat;
+use String::Util qw(trim);
 use namespace::autoclean;
 
 has 'codes' => (is=>'ro', isa=>'HashRef', default=>sub{{}});
@@ -54,11 +56,11 @@ sub load {
     if ($self->reload) {
 	unless ($self->append) {
 	    my $report=$self->mongo->remove({}, {safe=>1});
-	    warn "Codes::(re)load: removed %d old codes", $report->{n} if $ENV{DEBUG};
+	    warnf "Codes::(re)load: removed %d old codes", $report->{n} if $ENV{DEBUG};
 	}
 	my $codes=do $self->code_file or dief "error reading %s: $!\n", $self->code_file;
 	while (my ($code,$desc)=each %$codes) {
-	    $self->add($code, $desc);
+	    $self->add2($code, $desc);
 	}
     } else {
 	# load codes from db:
@@ -84,14 +86,12 @@ sub _build_next_code {
     my ($self)=@_;
     my $cursor=$self->mongo->find->sort({code=>-1})->limit(1);
     my $_next_code=$cursor->has_next? $cursor->next->{code}+1 : 1;
-    warn "max _next_code2 is $_next_code";
     $_next_code;
 }
 
 sub inc_next_code {
     my ($self)=@_;
-    warn "inc_next_code called";
-    my $nc=$self->next_code;
+    my $nc=$self->_build_next_code; # reuse method, avoids "gaps" in code seq
     $self->next_code($nc+1);
     $nc;
 }
@@ -113,40 +113,49 @@ sub get_inv {
 # writes to the db
 # return new numeric code
 sub add {
-    my ($self, $code, $desc)=@_;
-
-    # if we're adding a code desc, it'll be defined as $code
-    # and $desc won't be defined; hence, switch and use next_code:
-    my $inc_flag=0;
-    if (! defined $desc) {
-	$desc=$code;
-	$code=$self->next_code;	# don't inc here, we haven't checked yet for dups
-	$inc_flag=1;		# there are less hacky ways to do this
-	warn "Codes::add: only got desc '$desc', created new code $code";
+    my ($self, $new_desc)=@_;
+    # capitalize new desc:
+    my $desc = autoformat $new_desc, { case => 'highlight' };
+    $desc=trim $desc;
+    # make sure it doesn't aleady exist:
+    if ($self->get_inv($desc)) {
+	die "Codes::add($desc): already exists ($desc)\n";
     }
+
+    my $new_code=$self->inc_next_code;
+    $self->codes->{$new_code}=$desc;
+    $self->inv_codes->{$desc}=$new_code;
+    # fixme: this needs an eval, is sometimes barfing weirdly
+    my $report=$self->mongo->save({code=>$new_code, desc=>$desc}, {safe=>1});
+    return $new_code;
+}
+
+sub add2 {
+    my ($self, $code, $desc)=@_;
+    confess "missing code" unless $code;
+    confess "missing desc" unless $desc;
 
     # insure $code is numeric:
     die "code '$code' not numeric\n" unless $code=~/^[-]?\d+$/;
+    $code=$code+0;		# double tap
 
     # insure $desc is not numeric:
     die "code description '$desc' not allowed to be numeric\n"
 	if $desc =~ /^-?\d+$/;
 
     # check for dups:
-    if (my $desc=$self->codes->{$code}) {	
-	die "Codes::add($code, $desc): already exists ($code)\n";
+    if (my $old_desc=$self->codes->{$code}) {	
+	die "Codes::add2($code, $desc): already exists ($code)\n";
     }
-    if (my $code=$self->inv_codes->{$desc}) {
-	die "Codes::add($desc): already exists ($code)\n";
+    if (my $old_code=$self->inv_codes->{$desc}) {
+	die "Codes::add2($desc): already exists ($old_code)\n";
     }
 
     # now we can add the $code and $desc:
     $self->codes->{$code}=$desc;
     $self->inv_codes->{$desc}=$code;
-    my $icode=$code+0;		# ensure it's an int
-    warn "add: about to save { $icode=>$desc }";
-    my $report=$self->mongo->save({code=>$icode, desc=>$desc}, {safe=>1});
-    $self->inc_next_code if $inc_flag;
+    # fixme: this needs an eval, is sometimes barfing weirdly
+    my $report=$self->mongo->save({code=>$code, desc=>$desc}, {safe=>1});
     $code;
 }
 

@@ -70,6 +70,7 @@ sub add_ts {
     $stats;
 }
 
+# make sure all codes in Codes are stored as ints in db:
 sub t2i {
     my ($self, $options)=@_;
     my $mongo=$self->codes->mongo;
@@ -81,6 +82,42 @@ sub t2i {
 	warn Dumper($rep) if $rep->{err};
     }
 }
+
+# prune expense objects based on timestamp in oid:
+sub prune {
+    my ($self, $options)=@_;
+    my $start_ts=$options->{start_ts} || 0;
+    my $stop_ts=$options->{stop_ts} || time;
+    warnf "start_ts: %d\tstop_ts: %d\n", $start_ts, $stop_ts;
+
+    sub is_between {
+	my ($a,$b,$c)=@_;
+	return $a<=$b && $b<$c;
+    }
+
+    # not sure how to search on oid ts, so get 
+    # everything and delete as we go:
+    my $exps=Expense->find;
+    my $stats={total_exps=>scalar @$exps};
+    my @to_delete;
+    foreach my $exp (@$exps) {
+	my $ts=$exp->oid_ts;
+	my @lt=localtime $ts;
+	my $remove=is_between($start_ts, $ts, $stop_ts);
+	warnf "%d/%d/%d (%d): %s\n", $lt[3], $lt[4], 2000+$lt[5], $ts,
+	    ($remove? 'remove' : 'keep') if $ENV{DEBUG};
+	    
+	push @to_delete, $exp if $remove;
+    }
+    warnf "about to remove %d expenes %s\n", scalar @to_delete,
+    ($options->{dryrun}? '(not)' : '');
+    $stats->{deleted}=$options->{dry_run}? 0 : scalar @to_delete;
+    unless ($options->{dry_run}) {
+	do {$_->delete} for @to_delete;
+    }
+    $stats;
+}
+
 
 __PACKAGE__->meta->make_immutable;
 

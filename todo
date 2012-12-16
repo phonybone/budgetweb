@@ -1,3 +1,10 @@
+1Dec12
+to run w/nginx and fastcgi:
+   configure nginx (see /etc/nginx/conf.d/budgetweb.conf
+   start nginx
+   perl script/budgetweb_fastcgi -l 3002 -d
+   need to run /usr/bin/fastcgi-wrapper.pl???
+
 19Nov12
 Implement file upload
 Implement 'total' in line report

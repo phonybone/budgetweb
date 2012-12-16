@@ -16,7 +16,7 @@ use FixCodes;
 
 
 BEGIN: {
-  Options::use(qw(d q v h fuse=i dryrun));
+  Options::use(qw(d q v h fuse=i dryrun start_ts=i stop_ts=i));
     Options::useDefaults(fuse => -1);
     Options::get();
     die Options::usage() if $options{h};

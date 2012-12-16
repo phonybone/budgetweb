@@ -37,7 +37,7 @@ sub read_files {
     my $total_expenses=0;
     my $expenses=[];
     foreach my $input_csv (@files) {
-	next unless -r $input_csv;
+	next unless -r $input_csv; # silent fail...hmmm
 	warn "inputing $input_csv\n" if $self->verbose;
 
 	my $reader=new ExpenseReader(file_name=>$input_csv);
@@ -51,6 +51,8 @@ sub read_files {
 
     # remove expenses with dups in the db:
     my $e2=Expense->remove_existing($expenses);
+    my $n_removed=scalar @$expenses - scalar @$e2;
+    warnf "%d dup expenses removed", $n_removed;
     $e2;
 }
 
@@ -109,17 +111,24 @@ sub interactive_add_codes {
 # attempt to assign expenses with code==unknown using manually currated regexs:
 # return number of expenses that get a new code assignment.
 sub regex2code {
-    my ($self)=@_;
+    my ($self, $expenses)=@_;
+    unless ($expenses && ref $expenses eq 'ARRAY') {
+	warn "r2c: getting expenses from db\n";
+	$expenses=Expense->find({code=>Codes->UNKNOWN});
+    }
+    warnf "%d new expenses w/code==UNKNOWN\n", scalar @$expenses;
 
     my $regex_file=$self->regex_file;
-    return 0 unless $regex_file && -r $regex_file;
+    unless ($regex_file && -r $regex_file) {
+	warn "Unable to locate regex file '$regex_file'\n";
+	return 0;
+    } 
 
     my $d2c=new Desc2Code(regex_file=>$regex_file);
     my $n_assigned=0;
-    my $expenses=Expense->find({code=>Codes->UNKNOWN});
-    warnf "%d new expenses w/code==UNKNOWN\n", scalar @$expenses;
     foreach my $exp (@$expenses) {
 	my $code=$d2c->code_for($exp->bank_desc) or next;
+	warnf "%s  %s: regex-assign -> %d\n", $exp->date, $exp->bank_desc, $code;
 	$exp->code($code);
 	$exp->save;
 	$n_assigned++;

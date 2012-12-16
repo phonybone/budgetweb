@@ -195,6 +195,8 @@ sub has_dup_in_db {
     my ($self)=@_;
     my $query={date=>$self->date, amount=>$self->amount, bank_desc=>$self->bank_desc};
     my $record=$self->mongo->find_one($query);
+    warnf "%10s %80s: record is %s\n", $self->date, $self->bank_desc, ($record? 'found' : 'undef');
+    $record;
 }
 
 

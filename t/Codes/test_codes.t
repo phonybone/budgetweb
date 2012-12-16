@@ -53,7 +53,7 @@ sub test_curlies {
 
 sub test_add {
     my $codes=Codes->instance;
-    my $new_desc='bugs bunny';
+    my $new_desc='Bugs Bunny';
     my $new_code=$codes->add($new_desc);
     cmp_ok($new_code, '==', $codes->next_code-1, "new_code: $new_code");
     cmp_ok($codes->get($new_code), 'eq', $new_desc, "new code: $new_code=$new_desc");
@@ -74,7 +74,6 @@ sub test_add {
 sub test_next_code {
     my $codes=Codes->instance;
     my $nc=$codes->next_code;
-    warn "next_code is $nc";
     my $cursor=$codes->mongo->find({code=>$nc});
     ok (!$cursor->has_next, "No existing code for next_code=$nc");
     cmp_ok($codes->next_code, '==', $nc, "next_code doesn't inc");
